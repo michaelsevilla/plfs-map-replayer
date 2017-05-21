@@ -31,10 +31,10 @@ class HostEntry
 
 using namespace std;
 
-int rank, size;
+int myrank, size;
 MPI_Status stat;
 double openTime = 0, rwTime = 0, closeTime = 0;
-double start, end;
+double start, finish;
 off_t totalBytes = 0;
 char mode;
 
@@ -47,11 +47,11 @@ int main(int argc, char ** argv)
     MPI_File fh;
 
     MPI_Init (&argc, &argv);/* starts MPI */
-    MPI_Comm_rank (MPI_COMM_WORLD, &rank);/* get current process id */
+    MPI_Comm_rank (MPI_COMM_WORLD, &myrank);/* get current process id */
     MPI_Comm_size (MPI_COMM_WORLD, &size);/* get number of processes */
 
     if ( argc != 4 ) {
-        if ( rank == 0 ) {
+        if ( myrank == 0 ) {
             printf("Usage: mpirun -np num-of-proc-in-map-file %s " 
                    "mapfile output-file r/w\n", argv[0] );
         }
@@ -60,14 +60,14 @@ int main(int argc, char ** argv)
     }
 
     mode = argv[3][0];
-    if ( rank == 0 ) {
+    if ( myrank == 0 ) {
         if ( mode == 'w' ) {
             cout << "To Write File" << endl;
         } else {
             cout << "To Read File" << endl;
         }  
     }
-    printf( "Hello from process %d of %d\n", rank, size );
+    printf( "Hello from process %d of %d\n", myrank, size );
 
     //all ranks open a file for writing together
     start = MPI_Wtime();
@@ -78,13 +78,13 @@ int main(int argc, char ** argv)
         rc = MPI_File_open( MPI_COMM_WORLD, argv[2], 
                        MPI_MODE_RDONLY, MPI_INFO_NULL, &fh );
     }
-    end = MPI_Wtime();
-    openTime = end - start;
+    finish = MPI_Wtime();
+    openTime = finish - start;
     
     assert(rc == MPI_SUCCESS);
 
 
-    if ( rank == 0 ) {
+    if ( myrank == 0 ) {
         // Rank 0 opens map file
         idx_file.open(argv[1]);
         if (idx_file.is_open()) {
@@ -108,7 +108,7 @@ int main(int argc, char ** argv)
                 rc = MPI_Recv( &entry, sizeof(HostEntry), MPI_CHAR, 0, 1, 
                                MPI_COMM_WORLD, &stat );
                 
-                string buf(entry.length, 'a'+rank);
+                string buf(entry.length, 'a'+myrank);
                 assert(buf.size()==entry.length);
                 
                 start = MPI_Wtime();
@@ -119,8 +119,8 @@ int main(int argc, char ** argv)
                     ret = MPI_File_read_at(fh, entry.logical_offset,
                             &buf[0],  entry.length, MPI_CHAR, &stat);
                 }
-                end = MPI_Wtime();
-                rwTime += end - start;
+                finish = MPI_Wtime();
+                rwTime += finish - start;
 
                 assert(ret == MPI_SUCCESS);
                 
@@ -155,8 +155,8 @@ int main(int argc, char ** argv)
     
     start = MPI_Wtime();
     MPI_File_close(&fh);
-    end = MPI_Wtime();
-    closeTime = end - start;
+    finish = MPI_Wtime();
+    closeTime = finish - start;
 
     cout << "Open Time: " << openTime << endl
          << "rw Time: " << rwTime << endl
@@ -171,7 +171,7 @@ int main(int argc, char ** argv)
     off_t aggTotalBytes = 0;
     MPI_Reduce( &totalBytes, &aggTotalBytes, 1,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
-    if ( rank == 0 ) {
+    if ( myrank == 0 ) {
         cout << "----------- Final Performance ----------" << endl;
         cout << "Total Time: " << aggTotalTime << endl
              << "Total Bytes: " << aggTotalBytes << endl;
@@ -281,7 +281,7 @@ void bufferEntries(ifstream &idx_file, MPI_File fh)
             //static int mywrites = 0;
             int ret;
 
-            string buf(h_entry.length, 'a'+rank);
+            string buf(h_entry.length, 'a'+myrank);
             //cout << buf << endl;
             assert(buf.size()==h_entry.length);
             
@@ -293,8 +293,8 @@ void bufferEntries(ifstream &idx_file, MPI_File fh)
                 ret = MPI_File_read_at(fh, h_entry.logical_offset,
                         &buf[0],  h_entry.length, MPI_CHAR, &stat);
             }
-            end = MPI_Wtime();
-            rwTime += end - start;
+            finish = MPI_Wtime();
+            rwTime += finish - start;
            
             assert(ret == MPI_SUCCESS);
             
