@@ -74,7 +74,9 @@ int main(int argc, char ** argv)
             processor_name, myrank, size );
 
     //all ranks open a file for writing together
+    printf("process (%s, rank=%d) starting mpi_wtime", processor_name, myrank);
     start = MPI_Wtime();
+    printf("process (%s, rank=%d) opening file", processor_name, myrank);
     if ( mode == 'w' ) {
         rc = MPI_File_open( MPI_COMM_WORLD, argv[2], 
                       MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh );
@@ -82,12 +84,15 @@ int main(int argc, char ** argv)
         rc = MPI_File_open( MPI_COMM_WORLD, argv[2], 
                        MPI_MODE_RDONLY, MPI_INFO_NULL, &fh );
     }
+    printf("process (%s, rank=%d) done opening file", processor_name, myrank);
     finish = MPI_Wtime();
+    printf("process (%s, rank=%d) finishing mpi_wtime", processor_name, myrank);
     openTime = finish - start;
     
     assert(rc == MPI_SUCCESS);
 
 
+    printf("process (%s, rank=%d) ready to start", processor_name, myrank);
     if ( myrank == 0 ) {
         // Rank 0 opens map file
         idx_file.open(argv[1]);
